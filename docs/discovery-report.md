@@ -168,3 +168,57 @@ Resultado esperado sem fine-tuning inicial:
 - consistencia de tom
 - campos obrigatorios sempre presentes
 - boa qualidade de descricao operacional
+
+## 8. Evolucao arquitetural incremental do MVP (2026-04)
+
+As decisoes abaixo atualizam a baseline sem reescrever a arquitetura original:
+
+- topologia de execucao evolui para 2 clusters k3s no MVP
+- cluster A (ai lab): dedicado ao Ollama Server
+- cluster B (homelab server): dedicado as demais aplicacoes da plataforma
+- PostgreSQL permanece no cluster B nesta etapa
+- ambos clusters devem seguir o mesmo padrao operacional-base (Terraform bootstrap + ArgoCD + observabilidade com Grafana)
+
+### 8.1 Objetivo da divisao em dois clusters
+
+- isolar inferencia LLM das aplicacoes de orquestracao e integracao
+- preservar baseline operacional ja estavel no homelab server
+- permitir evolucao incremental do cluster de LLM com foco em GPU
+
+### 8.2 Estado de deploy topology apos esta evolucao
+
+Estado atual do item de topologia:
+
+- parte fechada: distribuicao macro por cluster e permanencia do PostgreSQL no homelab server
+- parte aberta: contrato de rede inter-cluster, estrategia de resiliencia do link local, e nivel de observabilidade federada entre clusters
+
+### 8.3 Guardrails mantidos
+
+- observabilidade continua detector primario
+- LLM local continua como analista/redator
+- policy engine continua como decisor de automacao
+- conhecimento tecnico continua fora do modelo e recuperado sob demanda
+- modelo segue sem acesso direto a credenciais e sem automacao externa direta
+
+### 8.4 Novos riscos e trade-offs introduzidos
+
+- risco: dependencia da conectividade LAN entre clusters
+  - mitigacao inicial: contratos de timeout, retry com backoff e degradacao controlada no Analyzer
+- risco: aumento de superficie operacional por segundo cluster
+  - mitigacao inicial: reaproveitar padroes de GitOps e observabilidade do homelab server
+- risco: capacidade/estabilidade de inferencia condicionada a configuracao GPU no cluster do laptop
+  - mitigacao inicial: baseline de GPU habilitada como trilha especifica no roadmap
+
+Trade-offs principais:
+
+- ganho: isolamento de inferencia e menor acoplamento operacional
+- custo: maior complexidade de rede e operacao multi-cluster
+- ganho: reaproveitamento de padrao comprovado no homelab server
+- custo: necessidade de padronizar contrato remoto de consumo do LLM
+
+### 8.5 Premissas explicitas desta fase
+
+- o cluster do homelab server ja esta operacional e saudavel
+- ArgoCD e observabilidade com Grafana no homelab server sao referencia de padrao
+- a comunicacao entre clusters ocorrera via rede local, sem assumir exposicao publica
+- nao ha mudanca de local do PostgreSQL no MVP atual

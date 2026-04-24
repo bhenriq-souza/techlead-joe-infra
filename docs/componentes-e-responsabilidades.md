@@ -26,7 +26,7 @@
   - validar payload
   - resolver projeto/servico
   - montar pacote de incidente
-  - chamar LLM local
+  - chamar LLM local ou qualquer outro provider
   - validar schema da resposta
   - aplicar policy
   - acionar Jira/Slack
@@ -35,6 +35,9 @@
   - separar fatos de interpretacao
   - nao confiar cegamente no modelo
   - versionar prompt/output
+- Topologia MVP:
+  - roda no cluster de aplicacoes (homelab server)
+  - consome inferencia do LLM por comunicacao de rede local com o cluster do admin laptop
 
 ## 3. Knowledge Ingestion (Python)
 
@@ -85,8 +88,12 @@
   - sem acesso direto a credenciais
   - sem execucao de automacao externa
   - sem deteccao primaria de incidente
+- Topologia MVP:
+  - roda em cluster k3s dedicado no admin laptop
+  - segue padrao-base de deploy por ArgoCD e baseline de observabilidade alinhada ao cluster principal
+  - requer configuracao de GPU NVIDIA no host para capacidade de inferencia
 
-## 7. Messaging Broker (RabbitMQ)
+## 7. Messaging Broker (Sistema de filas MQTT - ainda não definido, mas com forte tendência a utilizar GCP Pub/Sub)
 
 - Papel: desacoplamento, resiliencia e controle de throughput.
 - Usos previstos:
@@ -116,6 +123,10 @@
   - incidentes e analises
   - historico de integracao
   - templates e politicas
+- Topologia MVP:
+  - PostgreSQL permanece no cluster do homelab server nesta fase
+  - componentes do cluster do admin laptop nao recebem credenciais diretas de banco por padrao
+  - acesso a dados para fluxo de analise ocorre via servicos da plataforma e contratos controlados
 
 ## 10. Security / Governance / Policy
 
@@ -127,6 +138,33 @@
   - decisao final por policy engine
   - RBAC (admin, platform engineer, service owner, viewer)
   - credenciais fora do modelo
+
+## 11. Alocacao de componentes por cluster (MVP)
+
+### Cluster A - Ai Lab (Ollama)
+
+- LLM Server
+- observabilidade baseline do proprio cluster (alinhada ao padrao Grafana praticado)
+- ArgoCD para reconciliacao GitOps de workloads do cluster A
+#### PS: Preciso analisar as possibilidades de executar o LLM Server e se um cluster k3s faria sentido para ele.
+
+### Cluster B - homelab server (k3s plataforma)
+
+- Observability & Alert Source
+- Incident Analyzer
+- Knowledge Ingestion
+- Retrieval / Knowledge Access
+- Operational Catalog / Admin Platform
+- Messaging Broker (topologia ainda em aberto)
+- Integration Layer (Jira/Slack)
+- Persistence Layer (PostgreSQL)
+- Policy Engine e trilha de governanca
+
+### Dependencias inter-cluster
+
+- Incident Analyzer (cluster B) depende do endpoint de inferencia no cluster A
+- fluxo depende de conectividade LAN entre clusters
+- contratos de timeout/retry/fallback permanecem como detalhamento em aberto
 
 ## Contrato de saida esperado do LLM
 

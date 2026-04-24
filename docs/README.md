@@ -14,6 +14,7 @@ Servir como base de conhecimento para detalhamento incremental da arquitetura em
 - [modelo-conceitual-e-fluxos.md](modelo-conceitual-e-fluxos.md): entidades conceituais e fluxos ponta a ponta.
 - [itens-em-aberto-e-backlog.md](itens-em-aberto-e-backlog.md): decisoes pendentes, perguntas e backlog de detalhamento.
 - [openspec-roadmap.md](openspec-roadmap.md): direcionamento para transformar discovery em specs executaveis.
+- [deployment-topology-mvp.md](deployment-topology-mvp.md): topologia fisica/logica do MVP com 2 clusters e dependencias inter-cluster.
 
 ## Convencoes
 
@@ -29,4 +30,5 @@ Servir como base de conhecimento para detalhamento incremental da arquitetura em
 ## Escopo deste pacote
 
 - Foco em arquitetura logica e estrategia de implementacao.
-- Nao inclui ainda schema fisico de banco, IaC, SLOs formais ou topologia final de deploy.
+- Nao inclui ainda schema fisico de banco, IaC detalhado ou SLOs formais.
+- Topologia de deploy do MVP foi parcialmente fechada e evoluira por specs incrementais.
