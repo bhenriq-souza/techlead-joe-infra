@@ -72,7 +72,7 @@
 
 - Status: Fechada (revisada)
 - Decisao: hospedar o Cluster A (inferencia Ollama) na workstation AI Lab dedicada durante o desenvolvimento e a POC.
-  - Hardware: AMD Ryzen 9 7900X, RTX 5070 12 GB GDDR7, 64 GB DDR5, Ubuntu.
+  - Hardware: AMD Ryzen 9 7900X, RTX 5070 12 GB GDDR7, 64 GB DDR5, 2x SSD NVMe 1 TB PCIe 4.0, Ubuntu 26.04 LTS unico SO (ver DA-018 e DA-019).
   - Substitui o plano anterior de usar o admin laptop como host do Cluster A.
 - Escopo: a maquina opera como AI Lab somente durante a POC/desenvolvimento ativo.
 - Producao: o endpoint de inferencia sera migrado para outro provedor; nenhum componente do Cluster B depende de endere\u00e7o fixo do AI Lab (ver DA-013).
@@ -183,7 +183,7 @@
 - Engine escolhida: Ollama em ambas as fases.
   - API OpenAI-compatible nativa (`/v1/chat/completions`, `/v1/embeddings`).
   - Gestao integrada de modelos.
-  - Suporte a GGUF (eficiencia de storage no SSD de 1 TB).
+  - Suporte a GGUF (eficiencia de storage no SSD dedicado a workloads de IA, ver DA-019).
   - Ecossistema amplo e atualizado.
 - Consequencia: velocidade de inicio na Fase 1 sem criar divida de alinhamento; Fase 2 fecha os itens arquiteturais pendentes.
 - Trade-off: dois caminhos operacionais temporarios (Docker no AI Lab, k3s no homelab server) durante a Fase 1.
@@ -227,6 +227,44 @@
   - Latencia de geracao comprometendo SLA do Incident Analyzer.
   - Throughput de geracao insuficiente mesmo apos separacao de embeddings (DA-016).
 - Restricao: trocar para vLLM sem evidencia aumenta custo operacional sem ganho comprovado (modelos safetensors ocupam 2-3x mais storage que GGUF, setup CUDA mais pesado, sem gestao integrada de modelos).
+
+### DA-018 - Ubuntu 26.04 como unico SO da workstation AI Lab
+
+- Status: Fechada
+- Decisao: a workstation AI Lab opera com Ubuntu 26.04 LTS como unico sistema operacional, sem dual boot com Windows.
+- Rationale:
+  - simplicidade operacional: um unico SO, um unico ciclo de manutencao.
+  - Linux-first para Docker, NVIDIA Container Toolkit, Ollama e TEI sem camada de WSL ou troca de boot.
+  - alinhamento com o ecossistema do homelab server (Cluster B), tambem Linux.
+  - reduz superficie de configuracao e drivers a manter.
+- Consequencia: a maquina e dedicada a desenvolvimento, execucao de LLM/embeddings local e workloads de IA. Steam/jogos sao uso secundario via Proton/Wine, sem influenciar decisoes arquiteturais.
+- Trade-off: perda de Windows nativo para software Windows-only e jogos com anti-cheat incompativel com Linux.
+- Decisao descartada: dual boot com Windows em SSDs separados (avaliado e rejeitado por aumentar custo operacional sem ganho proporcional para o objetivo da maquina).
+
+### DA-019 - Layout de armazenamento em dois SSDs com separacao funcional
+
+- Status: Fechada
+- Contexto: workstation possui 2x SSD ADATA Legend 860 1 TB NVMe PCIe 4.0.
+- Decisao: separar funcionalmente os dois SSDs:
+  - SSD 1 (NVMe 1): sistema operacional Ubuntu 26.04, `/home`, ferramentas de desenvolvimento, repositorios, configuracao base do usuario.
+  - SSD 2 (NVMe 2): montado em `/data`, dedicado a workloads de IA e dados pesados:
+    - `/data/models` - modelos locais (Ollama GGUF, modelos HuggingFace do TEI)
+    - `/data/datasets` - corpora e dados brutos para experimentos
+    - `/data/docker` - data-root do Docker (imagens, containers, volumes)
+    - `/data/vector-indexes` - indices vetoriais persistidos (Qdrant, pgvector, FAISS)
+    - `/data/rag` - bases locais usadas pelo pipeline RAG
+    - `/data/cache` - caches de HuggingFace, transformers, pip
+    - `/data/backups` - snapshots locais (opcional)
+- Diretrizes operacionais:
+  - montagem persistente via `/etc/fstab` por UUID (`blkid`), nunca por device name.
+  - filesystem `ext4` com opcoes `defaults,noatime` em `/data`.
+  - Docker configurado com `data-root` apontando para `/data/docker` via `/etc/docker/daemon.json`.
+  - permissoes adequadas para o usuario principal (chown recursivo apos mount inicial).
+- Consequencia: SSD 1 permanece enxuto e reinstalavel sem perda de modelos/datasets/volumes; isolamento de I/O entre SO e workloads de IA.
+- Trade-off: dois pontos de montagem para gerenciar; layout de `/data` migra com custo se mal definido.
+- Notas:
+  - modelos GGUF e datasets publicos sao re-baixaveis; volumes Docker e `/data/rag` exigem backup explicito.
+  - politica de limpeza periodica de `/data/cache` e modelos Ollama nao utilizados deve ser parte do runbook do AI Lab.
 
 ## Riscos e mitigacoes iniciais
 

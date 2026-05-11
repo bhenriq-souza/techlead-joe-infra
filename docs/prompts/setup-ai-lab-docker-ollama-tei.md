@@ -15,12 +15,18 @@ Preciso que voce me guie no setup completo do meu AI Lab, que e uma workstation 
 
 ### Contexto da maquina
 
-- **OS:** Ubuntu (dual boot com Windows em SSDs separados)
+- **OS:** Ubuntu 26.04 LTS — unico sistema operacional, sem dual boot (ver DA-018).
 - **CPU:** AMD Ryzen 9 7900X (12 cores / 24 threads)
 - **GPU:** ASUS NVIDIA GeForce RTX 5070 ATS OC, 12 GB GDDR7
-- **RAM:** 64 GB DDR5 5600 MHz
-- **Storage Ubuntu:** 1 TB NVMe PCIe 4.0 (uso compartilhado entre SO, modelos, imagens Docker, dev environment)
+- **RAM:** 64 GB DDR5
 - **Placa-mae:** MSI PRO B650M-P (AM5, B650)
+- **Cooler:** Water Cooler Gamemax IceBurg 360N2 360 mm
+- **Fonte:** Corsair RM850e 850 W
+- **Gabinete:** Montech King 65 Pro
+- **Storage:** 2x SSD ADATA Legend 860 1 TB NVMe PCIe 4.0, com separacao funcional (ver DA-019):
+  - **SSD 1 (`/`):** sistema, `/home`, ferramentas de desenvolvimento, repositorios.
+  - **SSD 2 (`/data`):** workloads de IA — modelos (`/data/models`), datasets (`/data/datasets`), volumes Docker (`/data/docker`), indices vetoriais (`/data/vector-indexes`), bases RAG (`/data/rag`), cache (`/data/cache`).
+- **Docker `data-root`:** configurado para `/data/docker` para evitar consumo do SSD do SO.
 
 ### Contexto arquitetural da solucao
 
@@ -49,6 +55,17 @@ O componente de Knowledge Ingestion do Cluster B consome o servidor de embedding
 - CUDA Toolkit (necessario no host ou apenas no container?)
 - Docker Engine (nao Docker Desktop)
 - NVIDIA Container Toolkit: instalacao e configuracao do runtime
+
+**1.1 Layout de storage e Docker data-root**
+- Identificar UUID dos SSDs com `blkid`.
+- Criar ponto de montagem `/data` e entrada em `/etc/fstab` por UUID:
+  - filesystem: `ext4`
+  - opcoes: `defaults,noatime`
+  - dump/pass: `0 2`
+- Criar subdiretorios em `/data` (`models`, `datasets`, `docker`, `vector-indexes`, `rag`, `cache`).
+- Ajustar permissoes para o usuario principal (`chown -R <user>:<user> /data`).
+- Configurar Docker para usar `/data/docker` como `data-root` em `/etc/docker/daemon.json` antes de baixar imagens grandes.
+- Validar com `docker info | grep "Docker Root Dir"`.
 
 **2. Estrutura do `docker-compose.yml`**
 - Servico `ollama`: imagem, runtime NVIDIA, portas, volumes para modelos, politica de restart

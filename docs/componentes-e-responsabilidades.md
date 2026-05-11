@@ -92,6 +92,7 @@
   - roda em cluster k3s dedicado no admin laptop
   - segue padrao-base de deploy por ArgoCD e baseline de observabilidade alinhada ao cluster principal
   - requer configuracao de GPU NVIDIA no host para capacidade de inferencia
+- Host: Ubuntu 26.04 LTS unico SO (ver DA-018). Modelos, volumes Docker e caches do Ollama/TEI residem em `/data` (SSD dedicado a workloads de IA, ver DA-019).
 
 ## 7. Messaging Broker (Sistema de filas MQTT - ainda não definido, mas com forte tendência a utilizar GCP Pub/Sub)
 

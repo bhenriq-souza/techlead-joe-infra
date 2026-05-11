@@ -1,0 +1,10 @@
+# Arquivos de ambiente — nunca versionar
+.env
+*.env.local
+
+# Logs
+*.log
+
+# Cache e dados gerados localmente
+**/__pycache__/
+*.pyc

@@ -31,6 +31,7 @@ Documentar a topologia de deployment do MVP apos a decisao de operar com dois cl
 - operacao: ArgoCD para reconciliacao de manifests
 - observabilidade: baseline alinhada ao padrao Grafana praticado no cluster B
 - requisito de infraestrutura: configuracao de GPU NVIDIA no host
+- baseline de host: Ubuntu 26.04 LTS unico SO; modelos, volumes Docker e caches em `/data` (SSD dedicado), conforme DA-018 e DA-019.
 
 ### 3.2 Cluster B - Homelab Server (k3s plataforma)
 

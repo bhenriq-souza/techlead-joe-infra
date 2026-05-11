@@ -58,6 +58,13 @@ Transformar o discovery em especificacoes incrementais, testaveis e rastreaveis.
 - define contrato de request/response para consumo remoto de inferencia
 - define codigos de erro, degradacao controlada e campos obrigatorios de auditoria
 
+14. `ai-lab-host-baseline`
+- define baseline do host AI Lab: Ubuntu 26.04 LTS unico SO
+- define layout de storage (`/data`), montagem por UUID via fstab, opcoes de mount
+- define configuracao do Docker `data-root` em `/data/docker`
+- define permissoes e estrutura de subdiretorios
+- define politica minima de limpeza/cache e gatilhos de backup
+
 ## Template sugerido por spec
 
 Cada spec deve incluir:

@@ -77,6 +77,16 @@
 - Ainda aberto (Fase 2): bootstrap k3s + ArgoCD para o Cluster A seguindo padrao da DA-011.
 - Criterios: POC funcional com Incident Analyzer validado como gatilho para iniciar Fase 2.
 
+### 1.10 Estrategia de backup do SSD 2 (workloads de IA)
+
+- Status: Aberto
+- Prioridade: P1
+- Pergunta: o que entra em politica de backup ativa e o que e considerado regeneravel?
+- Criterios:
+  - regeneravel: `/data/models`, `/data/datasets` (publicos), `/data/cache`, `/data/vector-indexes` (regeneraveis a partir do RAG).
+  - critico: volumes Docker em `/data/docker/volumes` (Postgres/Qdrant/etc.) e `/data/rag` (corpora curados).
+  - frequencia, destino (HD externo/NAS), retencao e teste de restore precisam ser definidos.
+
 ## 2. Backlog inicial de detalhamento por chat/agente
 
 1. P0 - Contratos de evento e schema de incidente

@@ -1,0 +1,127 @@
+# =============================================================================
+# MODO DE TESTE WSL — NAO USAR COMO BASE DE PRODUCAO SEM REVISAO
+# =============================================================================
+# Ambiente : WSL2 Ubuntu 24.04 LTS (laptop admin)
+# Hardware  : RTX 3050 Laptop GPU 4GB VRAM | i7-12650H | 20GB RAM WSL
+# Estrategia: Ollama usa GPU; TEI usa CPU (VRAM limitada no laptop ~2.1GB livre)
+# Objetivo  : Validar integracao Ollama + TEI com API OpenAI-compatible
+#
+# Para uso: copie .env.example para .env e ajuste os valores antes de subir.
+# Documentacao: ./README.md
+# =============================================================================
+
+name: wsl-ai-lab
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Ollama — engine de geracao (LLM)
+  # API OpenAI-compatible em /v1/chat/completions
+  # GPU: NVIDIA RTX 3050 Laptop (CUDA 12.8, Ampere sm_86)
+  # ---------------------------------------------------------------------------
+  ollama:
+    image: ollama/ollama:latest
+    container_name: wsl-ai-lab-ollama
+    restart: unless-stopped
+
+    ports:
+      - "127.0.0.1:${OLLAMA_PORT:-11434}:11434"
+
+    volumes:
+      - ollama_data:/root/.ollama
+
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      # Limita uso de VRAM (MB). Ajuste conforme disponibilidade no laptop.
+      # Com 4GB VRAM e display usando ~1.7GB, deixamos ~1800MB para o modelo.
+      - OLLAMA_MAX_VRAM=1800
+
+    # Runtime NVIDIA — GPU passthrough via nvidia-container-toolkit
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+    networks:
+      - ai-lab-net
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # TEI — text-embeddings-inference (embeddings)
+  # Endpoint nativo: POST /embed
+  # MODO CPU: intencional neste teste de WSL (VRAM insuficiente no laptop)
+  # Na workstation oficial (RTX 5070 12GB): usar imagem GPU — ver README.
+  # ---------------------------------------------------------------------------
+  tei:
+    # [WSL-TEST] Imagem CPU — substituir por imagem GPU na workstation oficial
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-latest
+    container_name: wsl-ai-lab-tei
+    restart: unless-stopped
+
+    ports:
+      - "127.0.0.1:${TEI_PORT:-8080}:80"
+
+    volumes:
+      - tei_cache:/data
+
+    # O modelo e passado como argumento ao entrypoint text-embeddings-router
+    command: ["--model-id", "${TEI_MODEL_ID:-BAAI/bge-small-en-v1.5}", "--port", "80"]
+
+    # environment:
+    #   Descomente e preencha HF_TOKEN no .env apenas para modelos privados/gated.
+    #   NAO passar token vazio — a biblioteca hf-hub falha com string vazia
+    #   e gera erro "relative URL without a base".
+    #   - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}
+    environment:
+      # Fixar endpoint explicitamente evita ambiguidade no hf-hub
+      - HF_ENDPOINT=https://huggingface.co
+
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      # TEI faz download do modelo no primeiro start — aguarda mais tempo
+      start_period: 120s
+
+    networks:
+      - ai-lab-net
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# =============================================================================
+# Volumes — persistencia dentro do filesystem WSL (nunca em /mnt/c)
+# Inspecionar com: docker volume inspect wsl-ai-lab_ollama_data
+# =============================================================================
+volumes:
+  ollama_data:
+    name: wsl-ai-lab_ollama_data
+  tei_cache:
+    name: wsl-ai-lab_tei_cache
+
+# =============================================================================
+# Rede dedicada — isolamento do stack
+# =============================================================================
+networks:
+  ai-lab-net:
+    name: wsl-ai-lab_network
+    driver: bridge
