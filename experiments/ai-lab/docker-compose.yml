@@ -1,0 +1,112 @@
+# =============================================================================
+# AI Lab — Setup oficial da workstation (Fase 1: Docker Compose)
+# =============================================================================
+# Ambiente : Ubuntu 26.04 LTS nativo (workstation ai-lab)
+# Hardware  : RTX 5070 12 GB GDDR7 (Blackwell) | Ryzen 9 7900X | 64 GB DDR5
+# Estrategia: Ollama e TEI ambos em GPU (VRAM suficiente — sem restricao)
+# Referencia: DA-014 (Fase 1), DA-015, DA-016, DA-018, DA-019
+#
+# Para uso: copie .env.example para .env e ajuste os valores antes de subir.
+# Documentacao: ./README.md
+# =============================================================================
+
+name: ai-lab
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Ollama — engine de geracao (LLM)
+  # API OpenAI-compatible em /v1/chat/completions
+  # GPU: NVIDIA RTX 5070 (Blackwell, 12 GB GDDR7)
+  # ---------------------------------------------------------------------------
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ai-lab-ollama
+    restart: unless-stopped
+
+    ports:
+      # Exposto na LAN para consumo pelo Cluster B (DA-013, DA-014)
+      - "0.0.0.0:${OLLAMA_PORT:-11434}:11434"
+
+    volumes:
+      # Bind mount em SSD dedicado — modelos sobrevivem a reinstalacoes (DA-019)
+      - /data/models/ollama:/root/.ollama
+
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+    networks:
+      - ai-lab-net
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # TEI — text-embeddings-inference (embeddings)
+  # Endpoint nativo: POST /embed | OpenAI-compat: POST /v1/embeddings
+  #
+  # MODO CPU — temporario ate correcao das imagens GPU para Blackwell (sm_120):
+  #   blackwell-latest: libcurand.so.10 ausente na imagem (bug do upstream)
+  #   hopper-latest:    compile cap 90 incompativel com runtime cap 120
+  # Ollama permanece na GPU; TEI em CPU e viavel para POC (64 GB DDR5).
+  # ---------------------------------------------------------------------------
+  tei:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-latest
+    container_name: ai-lab-tei
+    restart: unless-stopped
+
+    ports:
+      # Exposto na LAN para consumo pelo Knowledge Ingestion (DA-016)
+      - "0.0.0.0:${TEI_PORT:-8080}:80"
+
+    volumes:
+      # Bind mount em SSD dedicado — modelos HuggingFace persistidos (DA-019)
+      - /data/models/tei-cache:/data
+
+    command: ["--model-id", "${TEI_MODEL_ID:-BAAI/bge-m3}", "--port", "80"]
+
+    environment:
+      - HF_ENDPOINT=https://huggingface.co
+
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      # TEI faz download do modelo no primeiro start — bge-m3 ~1.1 GB
+      start_period: 180s
+
+    networks:
+      - ai-lab-net
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# =============================================================================
+# Rede dedicada — isolamento do stack
+# =============================================================================
+networks:
+  ai-lab-net:
+    name: ai-lab_network
+    driver: bridge

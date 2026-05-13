@@ -77,7 +77,21 @@
 - Ainda aberto (Fase 2): bootstrap k3s + ArgoCD para o Cluster A seguindo padrao da DA-011.
 - Criterios: POC funcional com Incident Analyzer validado como gatilho para iniciar Fase 2.
 
-### 1.10 Estrategia de backup do SSD 2 (workloads de IA)
+### 1.10 Estrategia de embeddings para o Knowledge Ingestion
+
+- Status: Aberto
+- Prioridade: P1
+- Contexto: TEI (`cpu-latest`) esta em CPU por ausencia de imagem GPU funcional para Blackwell (sm_120). O proprio Ollama suporta geracao de embeddings via modelos dedicados (ex: `nomic-embed-text`, `mxbai-embed-large`) usando a mesma API OpenAI-compat — esses rodariam na GPU imediatamente, sem dependencia do TEI.
+- Pergunta: consolidar embeddings no Ollama (GPU, stack simplificada) ou manter TEI separado (aguardando suporte Blackwell, maior throughput especializado)?
+- Criterios:
+  - qualidade dos vetores (dimensao, suporte multilingual/pt-BR)
+  - latencia e throughput para Knowledge Ingestion em batch
+  - complexidade operacional (1 vs 2 containers)
+  - aceleracao GPU disponivel agora vs wait para correcao do TEI upstream
+  - compatibilidade com `EMBEDDING_BASE_URL` ja definido nos servicos consumidores
+- Acao: avaliar modelos de embedding no Ollama, comparar vetores e latencia com `bge-m3` no TEI CPU, e decidir antes da implementacao do modulo Knowledge Ingestion (DA-016).
+
+### 1.11 Estrategia de backup do SSD 2 (workloads de IA)
 
 - Status: Aberto
 - Prioridade: P1
