@@ -75,7 +75,7 @@
   - Hardware: AMD Ryzen 9 7900X, RTX 5070 12 GB GDDR7, 64 GB DDR5, 2x SSD NVMe 1 TB PCIe 4.0, Ubuntu 26.04 LTS unico SO (ver DA-018 e DA-019).
   - Substitui o plano anterior de usar o admin laptop como host do Cluster A.
 - Escopo: a maquina opera como AI Lab somente durante a POC/desenvolvimento ativo.
-- Producao: o endpoint de inferencia sera migrado para outro provedor; nenhum componente do Cluster B depende de endere\u00e7o fixo do AI Lab (ver DA-013).
+- Producao: o endpoint de inferencia sera migrado para outro provedor; nenhum componente do Cluster B depende de endereco fixo do AI Lab (ver DA-013).
 - Consequencia: GPU dedicada real viabiliza inferencia de qualidade com modelos 7B-14B; ambiente Ubuntu serve tambem como dev environment principal.
 - Trade-off: quando a maquina estiver desligada, o fluxo de analise entra em modo de falha controlada (ver DA-013).
 
@@ -111,13 +111,13 @@
 
 ### AA-003 - Modelo LLM para MVP
 
-- Status: Aberta
-- Pendente: familia/modelo exato, tamanho, throughput, fallback e tuning de inferencia.
+- Status: Fechada por DA-020 e DA-021.
 
 ### AA-004 - Estrategia inicial de retrieval
 
-- Status: Aberta
-- Pendente: textual puro no MVP vs hibrido/embeddings.
+- Status: Parcialmente fechada por DA-021.
+- Fechado: embeddings via Ollama + bge-m3 para fase POC.
+- Pendente: estrategia de chunking, ranking por metadados e priorizacao de runbooks.
 
 ### AA-005 - Politica de automacao Jira
 
@@ -265,6 +265,62 @@
 - Notas:
   - modelos GGUF e datasets publicos sao re-baixaveis; volumes Docker e `/data/rag` exigem backup explicito.
   - politica de limpeza periodica de `/data/cache` e modelos Ollama nao utilizados deve ser parte do runbook do AI Lab.
+
+### DA-020 - Modelo generativo principal para MVP
+
+- Status: Fechada
+- Decisao: adotar `qwen2.5-coder:14b-instruct-q4_K_M` como modelo generativo principal no AI Lab.
+- Rationale:
+  - boa aderencia a tarefas de codigo, DevOps e infraestrutura (Terraform, Kubernetes, Docker, Python, TypeScript).
+  - equilibrio adequado entre qualidade e viabilidade no hardware disponivel (RTX 5070, 12 GB VRAM).
+  - compativel com o perfil de uso tecnico predominante: revisao de codigo, troubleshooting, geracao de scripts, documentacao tecnica e decisoes de arquitetura.
+- Evidencia: experimento Ollama Embeddings (experiments/report_experimento_ollama_embeddings.md).
+- Modelos alternativos mapeados para uso futuro:
+  - `qwen3:14b` — raciocinio geral, arquitetura, planejamento e tarefas nao centradas em codigo.
+  - `deepseek-r1:8b` — debugging complexo, analise de causa raiz e problemas de logica.
+  - `gemma3:12b` — analise multimodal (imagens, prints, diagramas, dashboards).
+- Consequencia: fecha AA-003; modelo serve como backend do Incident Analyzer via API OpenAI-compatible (DA-013).
+- Trade-off: modelo especializado em codigo pode ter desempenho inferior em tarefas de raciocinio geral puro; alternativas mapeadas cobrem esse espaco quando necessario.
+
+### DA-021 - Servidor e modelo de embeddings para fase POC
+
+- Status: Fechada
+- Decisao: usar o proprio Ollama como servidor de embeddings com o modelo `bge-m3` durante a fase de POC e desenvolvimento ativo. TEI nao sera utilizado neste momento.
+- Rationale:
+  - imagem GPU do TEI sem suporte estavel para a arquitetura Blackwell (RTX 5070, sm_120) no momento do experimento.
+  - Ollama ja disponivel no AI Lab e suporta embeddings via API OpenAI-compatible (`/v1/embeddings`), sem container adicional.
+  - reduz complexidade operacional: um unico servico serve geracao de texto e embeddings.
+  - suficiente para prototipacao, RAG inicial e validacao de pipeline local.
+  - `bge-m3` cobre embeddings multilinguais (inclui pt-BR), suporta dense + sparse retrieval e serve bem documentos tecnicos, READMEs, ADRs, runbooks e bases de conhecimento.
+- Escopo: POC e desenvolvimento ativo. TEI permanece como opcao evolutiva para producao com maior throughput e separacao de inferencia (ver DA-016).
+- Evidencia: experimento Ollama Embeddings (experiments/report_experimento_ollama_embeddings.md).
+- Consequencia: fecha AA-003 (embeddings), AA-004 e item 1.10; `EMBEDDING_BASE_URL` aponta para Ollama durante a fase POC; Knowledge Ingestion pode usar o mesmo endpoint de embedding na fase inicial.
+- Trade-off: throughput de embedding inferior ao TEI em cenarios batch de alta concorrencia; aceitavel para o volume da fase POC.
+- Diretrizes operacionais:
+  - validar uso do bge-m3 como embedding server: `docker logs -f ollama | grep -Ei "api/embed|bge-m3"` e `watch -n 0.5 "docker exec ollama ollama ps"`.
+  - reindexar documentos sempre que o modelo de embedding for alterado (vetores nao sao compativeis semanticamente entre modelos distintos).
+
+### DA-022 - Observabilidade do Ollama via Grafana Alloy em Docker Compose
+
+- Status: Fechada
+- Decisao: adicionar Grafana Alloy como container no mesmo Docker Compose do Ollama no AI Lab, enviando logs do container `ai-lab-ollama` para o Loki do homelab.
+- Rationale:
+  - nao exige instalar k3s no AI Lab nesta fase (alinhado com DA-014 Fase 1).
+  - reaproveitou o Loki/Grafana ja operacionais no homelab server (Cluster B).
+  - manteve o Ollama proximo da GPU local da workstation.
+  - criou o primeiro fluxo real de observabilidade cross-host (`ai-lab → homelab`).
+  - permite evoluir para metricas de GPU, host e LLM sem refazer a arquitetura.
+- Arquitetura validada:
+  - Alloy lê o Docker socket (read-only) e descobre o container `ai-lab-ollama` por `discovery.docker`.
+  - labels fixas `host=ai-lab`, `service=ollama`, `runtime=docker-compose`, `env=lab` facilitam queries no Grafana.
+  - endpoint Loki configurado via variavel de ambiente `LOKI_PUSH_URL`.
+  - UI do Alloy exposta apenas em `127.0.0.1:12345` (sem exposicao na LAN).
+- Evidencia: experimento validado em `experiments/ollama-alloy-observability-report.md` (2026-05-14).
+  - fluxo `Ollama → Alloy → Loki → Grafana` operacional.
+  - primeiro dashboard criado: "Ollama Server - AiLab" com painel de requests POST/min.
+- Consequencia: Cluster A passa a ter observabilidade de logs centralizada no Grafana do homelab.
+- Trade-off: observabilidade atual e baseada em logs; metricas de GPU, host e tokens/latencia reais exigem evolucao futura (ver backlog P2/P3).
+- Parcialmente fecha AA-006 (observabilidade cross-cluster) e AA-008 (baseline de observabilidade do AI Lab).
 
 ## Riscos e mitigacoes iniciais
 

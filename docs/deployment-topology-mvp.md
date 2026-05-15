@@ -24,13 +24,15 @@ Documentar a topologia de deployment do MVP apos a decisao de operar com dois cl
 
 ## 3. Topologia fisica e logica (MVP)
 
-### 3.1 Cluster A - AI Lab (k3s Ollama)
+### 3.1 Cluster A - AI Lab (Docker Compose — Fase 1)
 
 - papel primario: inferencia LLM local
-- workload principal: Ollama Server
-- operacao: ArgoCD para reconciliacao de manifests
-- observabilidade: baseline alinhada ao padrao Grafana praticado no cluster B
-- requisito de infraestrutura: configuracao de GPU NVIDIA no host
+- workloads em execucao (Docker Compose, DA-014 Fase 1):
+  - `ai-lab-ollama`: servidor LLM (GPU RTX 5070), API OpenAI-compatible
+  - `ai-lab-alloy`: coleta de logs via Docker socket e encaminha ao Loki do homelab (DA-022)
+- operacao: Docker Compose versionado no repositorio; ArgoCD reservado para Fase 2 (k3s)
+- observabilidade: logs do Ollama chegando ao Loki/Grafana do homelab via Alloy (DA-022); metricas de GPU e host ainda pendentes
+- requisito de infraestrutura: NVIDIA Container Toolkit configurado no host
 - baseline de host: Ubuntu 26.04 LTS unico SO; modelos, volumes Docker e caches em `/data` (SSD dedicado), conforme DA-018 e DA-019.
 
 ### 3.2 Cluster B - Homelab Server (k3s plataforma)

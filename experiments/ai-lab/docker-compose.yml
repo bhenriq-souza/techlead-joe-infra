@@ -1,14 +1,6 @@
 # =============================================================================
 # AI Lab — Setup oficial da workstation (Fase 1: Docker Compose)
 # =============================================================================
-# Ambiente : Ubuntu 26.04 LTS nativo (workstation ai-lab)
-# Hardware  : RTX 5070 12 GB GDDR7 (Blackwell) | Ryzen 9 7900X | 64 GB DDR5
-# Estrategia: Ollama e TEI ambos em GPU (VRAM suficiente — sem restricao)
-# Referencia: DA-014 (Fase 1), DA-015, DA-016, DA-018, DA-019
-#
-# Para uso: copie .env.example para .env e ajuste os valores antes de subir.
-# Documentacao: ./README.md
-# =============================================================================
 
 name: ai-lab
 
@@ -16,8 +8,6 @@ services:
 
   # ---------------------------------------------------------------------------
   # Ollama — engine de geracao (LLM)
-  # API OpenAI-compatible em /v1/chat/completions
-  # GPU: NVIDIA RTX 5070 (Blackwell, 12 GB GDDR7)
   # ---------------------------------------------------------------------------
   ollama:
     image: ollama/ollama:latest
@@ -25,15 +15,14 @@ services:
     restart: unless-stopped
 
     ports:
-      # Exposto na LAN para consumo pelo Cluster B (DA-013, DA-014)
       - "0.0.0.0:${OLLAMA_PORT:-11434}:11434"
 
     volumes:
-      # Bind mount em SSD dedicado — modelos sobrevivem a reinstalacoes (DA-019)
       - /data/models/ollama:/root/.ollama
 
     environment:
       - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_MAX_LOADED_MODELS=2
 
     deploy:
       resources:
@@ -60,39 +49,38 @@ services:
         max-file: "3"
 
   # ---------------------------------------------------------------------------
-  # TEI — text-embeddings-inference (embeddings)
-  # Endpoint nativo: POST /embed | OpenAI-compat: POST /v1/embeddings
-  #
-  # MODO CPU — temporario ate correcao das imagens GPU para Blackwell (sm_120):
-  #   blackwell-latest: libcurand.so.10 ausente na imagem (bug do upstream)
-  #   hopper-latest:    compile cap 90 incompativel com runtime cap 120
-  # Ollama permanece na GPU; TEI em CPU e viavel para POC (64 GB DDR5).
+  # Grafana Alloy — coleta logs Docker do Ollama e envia para Loki do homelab
   # ---------------------------------------------------------------------------
-  tei:
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-latest
-    container_name: ai-lab-tei
+  alloy:
+    image: grafana/alloy:latest
+    container_name: ai-lab-alloy
     restart: unless-stopped
 
+    depends_on:
+      - ollama
+
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+
     ports:
-      # Exposto na LAN para consumo pelo Knowledge Ingestion (DA-016)
-      - "0.0.0.0:${TEI_PORT:-8080}:80"
+      # UI local do Alloy para debug:
+      # acesse no próprio ai-lab: http://localhost:12345
+      - "127.0.0.1:12345:12345"
 
     volumes:
-      # Bind mount em SSD dedicado — modelos HuggingFace persistidos (DA-019)
-      - /data/models/tei-cache:/data
-
-    command: ["--model-id", "${TEI_MODEL_ID:-BAAI/bge-m3}", "--port", "80"]
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy-data:/var/lib/alloy/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
 
     environment:
-      - HF_ENDPOINT=https://huggingface.co
+      - LOKI_PUSH_URL=${LOKI_PUSH_URL:-http://loki.homelab.local/loki/api/v1/push}
 
-    healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:80/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      # TEI faz download do modelo no primeiro start — bge-m3 ~1.1 GB
-      start_period: 180s
+    extra_hosts:
+      # Garante resolução do hostname do Loki dentro do container Alloy
+      - "loki.homelab.local:${HOMELAB_IP:-192.168.15.97}"
 
     networks:
       - ai-lab-net
@@ -104,9 +92,13 @@ services:
         max-file: "3"
 
 # =============================================================================
-# Rede dedicada — isolamento do stack
+# Rede dedicada
 # =============================================================================
 networks:
   ai-lab-net:
     name: ai-lab_network
     driver: bridge
+
+volumes:
+  alloy-data:
+    name: ai-lab_alloy_data

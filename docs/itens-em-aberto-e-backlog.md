@@ -18,10 +18,8 @@
 
 ### 1.3 Modelo LLM
 
-- Status: Aberto
-- Prioridade: P0
-- Pergunta: modelo exato, tamanho, latencia alvo, fallback.
-- Criterios: qualidade de texto, custo de inferencia, memoria/GPU, estabilidade.
+- Status: Fechado por DA-020 e DA-021.
+- Decisao: `qwen2.5-coder:14b-instruct-q4_K_M` como modelo generativo principal; `bge-m3` como modelo de embeddings, ambos via Ollama.
 
 ### 1.4 Retrieval no MVP
 
@@ -41,8 +39,8 @@
 
 - Status: Parcialmente fechado
 - Prioridade: P0
-- Parte fechada: cluster dedicado para Ollama (admin laptop) e cluster dedicado para plataforma (homelab server).
-- Parte aberta: contrato de comunicacao inter-cluster, fallback operacional, observabilidade cross-cluster.
+- Parte fechada: cluster dedicado para Ollama (admin laptop) e cluster dedicado para plataforma (homelab server). Observabilidade cross-host parcialmente fechada por DA-022 (logs do Ollama chegando ao Loki/Grafana do homelab).
+- Parte aberta: contrato de comunicacao inter-cluster, fallback operacional, metricas de host/GPU no AI Lab.
 - Criterios: seguranca de rede, resiliencia, observabilidade da plataforma.
 
 ### 1.7 Conectividade entre clusters
@@ -79,17 +77,9 @@
 
 ### 1.10 Estrategia de embeddings para o Knowledge Ingestion
 
-- Status: Aberto
-- Prioridade: P1
-- Contexto: TEI (`cpu-latest`) esta em CPU por ausencia de imagem GPU funcional para Blackwell (sm_120). O proprio Ollama suporta geracao de embeddings via modelos dedicados (ex: `nomic-embed-text`, `mxbai-embed-large`) usando a mesma API OpenAI-compat — esses rodariam na GPU imediatamente, sem dependencia do TEI.
-- Pergunta: consolidar embeddings no Ollama (GPU, stack simplificada) ou manter TEI separado (aguardando suporte Blackwell, maior throughput especializado)?
-- Criterios:
-  - qualidade dos vetores (dimensao, suporte multilingual/pt-BR)
-  - latencia e throughput para Knowledge Ingestion em batch
-  - complexidade operacional (1 vs 2 containers)
-  - aceleracao GPU disponivel agora vs wait para correcao do TEI upstream
-  - compatibilidade com `EMBEDDING_BASE_URL` ja definido nos servicos consumidores
-- Acao: avaliar modelos de embedding no Ollama, comparar vetores e latencia com `bge-m3` no TEI CPU, e decidir antes da implementacao do modulo Knowledge Ingestion (DA-016).
+- Status: Fechado por DA-021 para fase POC.
+- Decisao: Ollama + `bge-m3` para embeddings durante POC e desenvolvimento ativo. TEI adiado ate suporte estavel para Blackwell (sm_120) disponivel upstream.
+- Revisao: reavaliar TEI quando suporte Blackwell estiver disponivel ou quando o volume de Knowledge Ingestion exigir throughput batch superior ao que o Ollama oferece (ver DA-016 para criterios de evolucao).
 
 ### 1.11 Estrategia de backup do SSD 2 (workloads de IA)
 
@@ -128,11 +118,9 @@
    - estrategia de chunking
    - criterio de priorizacao de runbooks
 
-7. P1 - Servidor dedicado de embeddings para Knowledge Ingestion (ver DA-016)
-   - servidor preferido: `text-embeddings-inference` (HuggingFace TEI)
-   - alternativa: `infinity-emb` para experimentacao rapida
-   - modelo sugerido: `BAAI/bge-m3` (multilingual, suporta pt-BR) ou `nomic-ai/nomic-embed-text-v1.5`
-   - execucao: container Docker no AI Lab, porta dedicada (ex: 8080), variavel `EMBEDDING_BASE_URL` no Knowledge Ingestion
+7. P1 - Servidor de embeddings para Knowledge Ingestion (ver DA-021 e DA-016)
+   - fase POC (decisao fechada por DA-021): Ollama + `bge-m3`; `EMBEDDING_BASE_URL` aponta para Ollama.
+   - fase producao / alto volume (DA-016): reavaliar TEI quando suporte Blackwell (sm_120) estiver disponivel upstream.
    - a ser implementado junto com o modulo de Knowledge Ingestion (nao bloqueia o MVP do Incident Analyzer)
 
 6. P1 - Integracao Jira/Slack
@@ -170,10 +158,14 @@
    - alinhar estrutura de apps e ownership operacional
    - validar convergencia com padrao do homelab server
 
-13. P1 - Observability baseline for second cluster
-   - definir stack minima alinhada ao ecossistema Grafana
-   - definir paineis basicos de saude do cluster Ollama
-   - definir sinais para detectar degradacao da inferencia
+13. P1 - Observability baseline for AI Lab (Ollama cluster)
+   - Parcialmente fechado por DA-022: logs do Ollama chegando ao Loki via Grafana Alloy (Docker Compose); dashboard "Ollama Server - AiLab" criado com painel de requests POST/min.
+   - Ainda aberto:
+     - ajustar query "requests por minuto" para `sum(rate({host="ai-lab", service="ollama"} |= "POST" [5m])) * 60`
+     - expandir dashboard: paineis de erros/min, requests por endpoint, logs recentes, logs por stream
+     - metricas de host: adicionar node_exporter ou cAdvisor ao Compose (CPU, RAM, disco, rede)
+     - metricas de GPU: adicionar NVIDIA DCGM Exporter (utilizacao, VRAM, temperatura, power draw)
+     - metricas reais de LLM: criar ollama-gateway com metricas Prometheus (tokens, latencia, requests por modelo)
 
 14. P1 - Remote LLM consumption contract
    - definir schema de request/response entre clusters

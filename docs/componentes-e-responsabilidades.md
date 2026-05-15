@@ -44,7 +44,7 @@
 - Papel: transformar documentacao viva em conhecimento recuperavel.
 - Fontes: README, OpenSpec, docs, ADRs, runbooks, OpenAPI, manifests.
 - Responsabilidades:
-  - receber webhook ou sync agendado
+  - receber sync agendado
   - baixar arquivos permitidos
   - extrair metadados
   - chunking e indexacao
@@ -142,12 +142,14 @@
 
 ## 11. Alocacao de componentes por cluster (MVP)
 
-### Cluster A - Ai Lab (Ollama)
+### Cluster A - AI Lab (Docker Compose — Fase 1)
 
-- LLM Server
-- observabilidade baseline do proprio cluster (alinhada ao padrao Grafana praticado)
-- ArgoCD para reconciliacao GitOps de workloads do cluster A
-#### PS: Preciso analisar as possibilidades de executar o LLM Server e se um cluster k3s faria sentido para ele.
+- LLM Server (Ollama — GPU RTX 5070, API OpenAI-compatible)
+- TEI Embeddings Server (bge-m3, CPU — workaround Blackwell)
+- Grafana Alloy (coleta logs do Ollama e envia ao Loki do homelab — DA-022)
+- ArgoCD reservado para Fase 2 (k3s) conforme DA-014
+
+> Observabilidade de logs validada e operacional (DA-022). Metricas de GPU e host ainda pendentes (ver backlog item 13).
 
 ### Cluster B - homelab server (k3s plataforma)
 

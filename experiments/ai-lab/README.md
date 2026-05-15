@@ -65,16 +65,40 @@ A qualidade dos embeddings e identica: os vetores sao matematicamente os mesmos 
 | Container Ollama com runtime NVIDIA configurado | OK |
 | Container TEI em modo CPU (workaround Blackwell) | OK |
 | Bind mounts em `/data` persistem apos `down/up` | OK |
+| Logs do Ollama chegando no Loki via Grafana Alloy | OK |
+| Dashboard "Ollama Server - AiLab" criado no Grafana | OK |
+
+## Observabilidade
+
+A stack inclui Grafana Alloy como container de coleta de logs (DA-022).
+
+| Componente | Papel |
+|---|---|
+| `ai-lab-alloy` | Lê logs do Docker socket, filtra `ai-lab-ollama`, envia ao Loki do homelab |
+| Loki (`loki.homelab.local`) | Armazena logs centralizados |
+| Grafana (`grafana.homelab.local`) | Dashboard "Ollama Server - AiLab" |
+
+Query principal para requests POST/min:
+
+```logql
+sum(rate({host="ai-lab", service="ollama"} |= "POST" [5m])) * 60
+```
+
+Configuracao do Alloy em `alloy/config.alloy`. Endpoint Loki configurado via `LOKI_PUSH_URL` no `.env`.
+
+> Experimento detalhado: `experiments/ollama-alloy-observability-report.md`
 
 ## Estrutura de arquivos
 
 ```
 experiments/ai-lab/
-├── docker-compose.yml      # Stack principal
-├── .env.example            # Variaveis necessarias — copiar para .env
-├── README.md               # Este arquivo
+├── docker-compose.yml        # Stack principal (Ollama + TEI + Alloy)
+├── .env.example              # Variaveis necessarias — copiar para .env
+├── README.md                 # Este arquivo
+├── alloy/
+│   └── config.alloy          # Configuracao do Grafana Alloy
 └── scripts/
-    └── validate.sh         # Script de criterios de aceite
+    └── validate.sh           # Script de criterios de aceite
 ```
 
 ## Pre-requisitos do host
