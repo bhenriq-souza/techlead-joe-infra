@@ -15,6 +15,7 @@ Servir como base de conhecimento para detalhamento incremental da arquitetura em
 - [itens-em-aberto-e-backlog.md](itens-em-aberto-e-backlog.md): decisoes pendentes, perguntas e backlog de detalhamento.
 - [openspec-roadmap.md](openspec-roadmap.md): direcionamento para transformar discovery em specs executaveis.
 - [deployment-topology-mvp.md](deployment-topology-mvp.md): topologia fisica/logica do MVP com 2 clusters e dependencias inter-cluster.
+- [cicd-gitops-plan.md](cicd-gitops-plan.md): plano de CI/CD e GitOps para servicos Techlead Joe — build, push e deploy automatizado.
 
 ## Convencoes
 

@@ -91,6 +91,19 @@
   - critico: volumes Docker em `/data/docker/volumes` (Postgres/Qdrant/etc.) e `/data/rag` (corpora curados).
   - frequencia, destino (HD externo/NAS), retencao e teste de restore precisam ser definidos.
 
+### 1.12 CI/CD e GitOps para servicos Techlead Joe
+
+- Status: Planejado
+- Prioridade: P0
+- Decisao: criar repositorio `techlead-joe-gitops` separado do `homelab-gitops`. Detalhe completo em [cicd-gitops-plan.md](cicd-gitops-plan.md).
+- Plano em 4 etapas sequenciais:
+  1. Terraform WIF + Secrets no GCP (`homelab-infra`) — habilita autenticacao OIDC e secrets de aplicacao.
+  2. Criar `techlead-joe-gitops` com manifests Kubernetes e ExternalSecrets.
+  3. Configurar ArgoCD AppProject + Application em `homelab-gitops` apontando para `techlead-joe-gitops`.
+  4. Criar workflow de CI em cada repositorio de aplicacao chamando o workflow reutilizavel do homelab.
+- Prompts de implementacao por etapa disponIveis em `agents/prompts/implement-cicd-etapa{1..4}-*.md`.
+- Dependencia: cluster ai-lab com k3s ativo (item 1.9) e bootstrap do ArgoCD no cluster A (item 1.9).
+
 ## 2. Backlog inicial de detalhamento por chat/agente
 
 1. P0 - Contratos de evento e schema de incidente
