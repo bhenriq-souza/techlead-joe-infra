@@ -16,6 +16,13 @@ O ecossistema hoje tem **dois repositórios ativos** e um terceiro planejado:
 | `techlead-joe-knowledge-injection-service` | Serviço Python de ingestão de conhecimento (RAG) | Ativo — Fases 1–2 completas, Fase 3 em andamento |
 | `techlead-joe-gitops` | Manifests K8s + ArgoCD | **Não criado** — bloqueado por CI/CD Etapa 1 |
 
+O ecossistema depende de infraestrutura de suporte em dois repositórios separados já ativos:
+
+| Repositório | Papel | Estado relevante para o projeto |
+|---|---|---|
+| `homelab-infra` | IaC Terraform, ADRs, rede, host Ubuntu + K3s | WIF pool/provider, Artifact Registry `homelab-apps` e ESO já provisionados; bootstrap ArgoCD gerenciado por Terraform |
+| `homelab-gitops` | Estado desejado dos clusters reconciliado pelo ArgoCD | Cluster `homelab` operacional; workflow reutilizável `docker-build-push.yaml` já implementado; scaffold `clusters/ai-lab` pronto aguardando K3s |
+
 ---
 
 ## 2. Tech Stack
@@ -101,14 +108,14 @@ Cluster A (AI Lab workstation — Docker Compose hoje, k3s futuro)
   ├─ Text Embeddings Inference (CPU, workaround Blackwell)
   └─ Grafana Alloy
 
-Cluster B (homelab server — k3s)
+Cluster B (homelab server — k3s) ← gerenciado por homelab-gitops via ArgoCD
   ├─ Incident Analyzer
   ├─ Knowledge Injection Worker
   ├─ Retrieval / Knowledge Access
   ├─ Admin Platform (Node.js + React + Next.js)
   ├─ RabbitMQ (topology TBD — AA-001)
   ├─ Policy Engine
-  └─ PostgreSQL (DA-012)
+  └─ PostgreSQL (DA-012) ← StatefulSet pgvector/pgvector:pg16 já definido em homelab-gitops/dev-apps
 ```
 
 ---
@@ -147,7 +154,7 @@ Cluster B (homelab server — k3s)
 | `componentes-e-responsabilidades.md` | Parcialmente desatualizado | Não reflete a decisão event-driven — Incident Analyzer e Knowledge Ingestion precisam de atualização |
 | `modelo-conceitual-e-fluxos.md` | Parcialmente desatualizado | O Fluxo 3 (inter-cluster) ainda assume GitRepositoryClient; o fluxo event-driven (Pub/Sub) não está aqui |
 | `deployment-topology-mvp.md` | Válido | Reflete o estado atual (Docker Compose na Fase 1) |
-| `cicd-gitops-plan.md` | Válido | Bem detalhado, ainda não executado |
+| `cicd-gitops-plan.md` | Válido, parcialmente desatualizado | Plano ainda não executado, mas a infraestrutura de suporte avançou: WIF + Artifact Registry + ESO já existem em `homelab-infra/homelab-gitops`; workflow reutilizável `docker-build-push.yaml` já implementado; o plano deve ser revisto para refletir o menor esforço restante nas Etapas 1 e 4 |
 | `openspec-roadmap.md` | Válido como roadmap | As 14 specs não estão em execução linear — o repo divergiu para event-driven antes de completar o roadmap original |
 | `itens-em-aberto-e-backlog.md` | Parcialmente desatualizado | Não inclui os novos open items levantados após a decisão event-driven |
 
