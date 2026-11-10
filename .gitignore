@@ -8,3 +8,4 @@
 # Cache e dados gerados localmente
 **/__pycache__/
 *.pyc
+.claude/settings.local.json
